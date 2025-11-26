@@ -185,10 +185,13 @@ async function validateCustomer(userId: string, email: string) {
     user = await UserModel.findOne({ userId }).lean();
   }
 
+  // Type assertion to handle Mongoose lean() return type
+  const userDoc = user as any;
+
   // Retrieve or create Stripe customer
-  if (user?.stripeCustomerId) {
+  if (userDoc?.stripeCustomerId) {
     try {
-      customer = await stripe.customers.retrieve(user.stripeCustomerId);
+      customer = await stripe.customers.retrieve(userDoc.stripeCustomerId);
       if (customer.deleted) {
         customer = null;
       }

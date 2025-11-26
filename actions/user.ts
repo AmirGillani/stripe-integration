@@ -47,13 +47,16 @@ export async function fetchUser(userId: string) {
 
     if (!user) return null;
 
+    // Type assertion to handle Mongoose lean() return type
+    const userDoc = user as any;
+
     return {
-      ...user,
-      _id: user._id.toString(),
-      userId: user.userId,
-      stripeCustomerId: user.stripeCustomerId,
-      credits: user.credits || 0,
-      subscription: user.subscription || "Free",
+      ...userDoc,
+      _id: userDoc._id?.toString() || "",
+      userId: userDoc.userId,
+      stripeCustomerId: userDoc.stripeCustomerId,
+      credits: userDoc.credits || 0,
+      subscription: userDoc.subscription || "Free",
     };
   } catch (error) {
     console.error("Error fetching user:", error);
@@ -254,14 +257,17 @@ export async function validateCredits(userId: string, credits: number) {
       return false;
     }
 
+    // Type assertion to handle Mongoose lean() return type
+    const userDoc = user as any;
+
     console.log(
       "User credits:",
-      user.credits,
+      userDoc.credits,
       "Required:",
       credits
     );
 
-    return (user.credits || 0) >= credits;
+    return (userDoc.credits || 0) >= credits;
   } catch (error) {
     console.error("Error validating credits:", error);
     return false;
