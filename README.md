@@ -1,36 +1,146 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stripe Credit-Based System Integration
 
-## Getting Started
+A complete implementation of a credit-based subscription system using Stripe, Next.js, and MongoDB. This project demonstrates how to build a subscription system where users receive credits when they subscribe to plans.
 
-First, run the development server:
+## 🎯 Features
+
+- ✅ Credit-based subscription system
+- ✅ Automatic credit allocation on subscription
+- ✅ Credit deduction with validation
+- ✅ Billing history tracking
+- ✅ Webhook handling for subscription events
+- ✅ Duplicate payment prevention
+- ✅ Subscription management (upgrade/downgrade/cancel)
+
+## 🚀 Quick Start
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Set Up Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+# MongoDB Connection
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database
+
+# Stripe Keys
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
+
+# Stripe Webhook Secrets
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+
+# Stripe Price IDs (Get these from your Stripe Dashboard)
+NEXT_PUBLIC_STRIPE_MONTHLY_BEGINNER=price_xxxxx
+NEXT_PUBLIC_STRIPE_MONTHLY_DAILY=price_xxxxx
+NEXT_PUBLIC_STRIPE_MONTHLY_CREATOR=price_xxxxx
+NEXT_PUBLIC_STRIPE_YEARLY_BEGINNER=price_xxxxx
+NEXT_PUBLIC_STRIPE_YEARLY_DAILY=price_xxxxx
+NEXT_PUBLIC_STRIPE_YEARLY_CREATOR=price_xxxxx
+
+# Redirect URLs
+STRIPE_REDIRECT_URL=http://localhost:3000
+STRIPE_PROD_REDIRECT=https://yourdomain.com
+```
+
+### 3. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+stripe-integration/
+├── app/
+│   ├── api/
+│   │   ├── checkout/          # Create Stripe checkout sessions
+│   │   ├── webhook/           # Handle Stripe webhooks
+│   │   ├── user/              # Get user data
+│   │   └── credits/           # Credit management
+│   ├── dashboard/             # User dashboard
+│   ├── pricing/               # Pricing page
+│   └── page.tsx               # Home page
+├── actions/
+│   └── user.ts                # Server actions for user/credit management
+├── models/
+│   ├── user.ts                # User model (credits, subscription)
+│   └── billingHistory.ts      # Billing history model
+├── lib/
+│   └── connectDB.ts           # MongoDB connection utility
+└── STRIPE_INTEGRATION_GUIDE.md # Comprehensive guide
+```
 
-## Learn More
+## 📚 Documentation
 
-To learn more about Next.js, take a look at the following resources:
+For detailed documentation, see [STRIPE_INTEGRATION_GUIDE.md](./STRIPE_INTEGRATION_GUIDE.md)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The guide covers:
+- Complete architecture overview
+- Step-by-step setup instructions
+- How the credit system works
+- API endpoints documentation
+- Testing with Stripe CLI
+- Troubleshooting guide
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔑 Key Concepts
 
-## Deploy on Vercel
+### Credit Allocation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+When users subscribe, they receive credits based on their plan:
+- **Beginner**: 1,000 credits
+- **Daily**: 2,000 credits
+- **Creator**: 5,000 credits
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### How It Works
+
+1. User subscribes → Stripe Checkout Session created
+2. Payment succeeds → Stripe sends webhook
+3. Webhook processes → Credits added to user account
+4. User uses features → Credits deducted
+5. Subscription renews → Credits added again
+
+## 🧪 Testing
+
+### Test with Stripe CLI
+
+1. Install Stripe CLI: https://stripe.com/docs/stripe-cli
+2. Forward webhooks:
+   ```bash
+   stripe listen --forward-to localhost:3000/api/webhook
+   ```
+3. Use test card: `4242 4242 4242 4242`
+
+## 🛠️ API Endpoints
+
+- `POST /api/checkout` - Create checkout session
+- `POST /api/webhook` - Handle Stripe webhooks
+- `GET /api/user?userId=xxx` - Get user data and credits
+- `POST /api/credits/deduct` - Deduct credits
+
+## 📝 Notes
+
+- This is a learning/demo implementation
+- Replace `MOCK_USER_ID` with your actual authentication system
+- Add proper error handling and logging for production
+- Implement rate limiting and security measures
+
+## 🆘 Support
+
+For issues:
+1. Check [STRIPE_INTEGRATION_GUIDE.md](./STRIPE_INTEGRATION_GUIDE.md)
+2. Verify environment variables are set
+3. Check Stripe Dashboard for webhook events
+4. Review server logs for errors
+
+## 📄 License
+
+This project is for educational purposes.
