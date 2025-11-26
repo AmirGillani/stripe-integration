@@ -55,7 +55,7 @@ function getPlanDetailsByPriceId(priceId: string) {
 
 export async function POST(req: Request) {
   try {
-    const { price, userId, email, manageSubscription, cancelSubscription } =
+    const { price, userId, email, name, manageSubscription, cancelSubscription } =
       await req.json();
 
     if (!price && !manageSubscription && !cancelSubscription) {
@@ -71,8 +71,8 @@ export async function POST(req: Request) {
 
     await connectDB();
 
-    // Validate/create customer
-    const customer = await validateCustomer(userId, email);
+    // Validate/create customer (name will be collected in checkout for Indian compliance)
+    const customer = await validateCustomer(userId, email, name);
 
     // Get existing subscriptions
     const subscriptionsResponse = await stripe.subscriptions.list({
@@ -126,12 +126,47 @@ export async function POST(req: Request) {
 
     // Create checkout session
     if (price) {
+      // Validate price ID format
+      if (!price.startsWith("price_")) {
+        return NextResponse.json(
+          {
+            error: `Invalid price ID format. You provided: "${price}". Price IDs must start with "price_". You may have used a product ID (starts with "prod_") instead. Please use the Price ID from your Stripe Dashboard.`,
+            hint: "In Stripe Dashboard: Products → Select your product → Find the price under 'Pricing' → Copy the Price ID (starts with 'price_')",
+          },
+          { status: 400 }
+        );
+      }
+
+      // Verify price exists in Stripe
+      try {
+        await stripe.prices.retrieve(price);
+      } catch (error: any) {
+        if (error.code === "resource_missing") {
+          return NextResponse.json(
+            {
+              error: `Price ID "${price}" not found in your Stripe account. Please check:`,
+              details: [
+                "1. Make sure you're using the correct Stripe account (test vs live mode)",
+                "2. Verify the price ID in your Stripe Dashboard",
+                "3. Ensure the price is active and not archived",
+                `4. You may have used a product ID (prod_xxx) instead of a price ID (price_xxx)`,
+              ],
+              providedPriceId: price,
+            },
+            { status: 400 }
+          );
+        }
+        throw error; // Re-throw other errors
+      }
+
       const stripeSession = await stripe.checkout.sessions.create({
         success_url: successUrl,
         cancel_url: cancelUrl,
         payment_method_types: ["card"],
         mode: "subscription",
-        billing_address_collection: "auto",
+        // Required for Indian regulations - collect customer name and address
+        billing_address_collection: "required", // Required for Indian export transactions
+        // Use existing customer (email is already set on the customer)
         customer: customer.id,
         allow_promotion_codes: true,
         line_items: [
@@ -151,22 +186,53 @@ export async function POST(req: Request) {
             : {}),
         },
         payment_method_collection: "if_required",
+        // Required for Indian compliance - update customer with name and address
+        customer_update: {
+          address: "auto", // Automatically update customer address from checkout
+          name: "auto", // Automatically update customer name from checkout
+        },
       });
 
       return NextResponse.json({ url: stripeSession.url });
     }
 
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in checkout API:", error);
+    
+    // Provide helpful error messages for common Stripe errors
+    if (error?.type === "StripeInvalidRequestError") {
+      if (error?.code === "resource_missing") {
+        return NextResponse.json(
+          {
+            error: "Stripe resource not found",
+            details: error.message,
+            hint: "Make sure you're using Price IDs (starts with 'price_') not Product IDs (starts with 'prod_'). See HOW_TO_GET_PRICE_IDS.md for help.",
+          },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        {
+          error: "Stripe API error",
+          details: error.message,
+          code: error.code,
+        },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: "Internal server error" },
+      { 
+        error: "Internal server error",
+        details: error?.message || "Unknown error occurred"
+      },
       { status: 500 }
     );
   }
 }
 
-async function validateCustomer(userId: string, email: string) {
+async function validateCustomer(userId: string, email: string, name?: string) {
   await connectDB();
 
   let customer: Stripe.Customer | Stripe.DeletedCustomer | null = null;
@@ -202,9 +268,17 @@ async function validateCustomer(userId: string, email: string) {
   }
 
   if (!customer || customer.deleted) {
-    customer = await stripe.customers.create({
+    // Create customer with email and name (if provided)
+    // Note: For Indian compliance, name and address will be collected in checkout
+    const customerData: Stripe.CustomerCreateParams = {
       email: email,
-    });
+    };
+    
+    if (name) {
+      customerData.name = name;
+    }
+    
+    customer = await stripe.customers.create(customerData);
 
     // Update user with Stripe customer ID
     await UserModel.updateOne(
